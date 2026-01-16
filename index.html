@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture Magic Particles</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; }
+        #info { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
+        #video-container { position: absolute; bottom: 20px; right: 20px; width: 200px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.3); transform: scaleX(-1); }
+        .hint { font-size: 0.9rem; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div id="info">
+        <h1>Hand Morph Particles</h1>
+        <p class="hint">Open hand wide to <b>Expand</b></p>
+        <p class="hint">Close fist to <b>Shrink & Heart Morph</b></p>
+        <p class="hint">Flick hand open fast for <b>Fireworks</b></p>
+    </div>
+    <video id="input-video" style="display:none"></video>
+    <canvas id="video-container"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <script>
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        camera.position.z = 15;
+
+        // --- SHADER ---
+        const vertexShader = `
+            varying vec3 vColor;
+            uniform float uTime;
+            uniform float uSize;
+            uniform vec3 uHandPos;
+            uniform float uExplosion;
+            uniform float uMorph;
+
+            float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+            void main() {
+                float id = float(gl_VertexID);
+                
+                // SHAPE 1: HEART
+                vec3 posHeart;
+                float t = id * 0.1;
+                posHeart.x = 16.0 * pow(sin(t), 3.0);
+                posHeart.y = 13.0 * cos(t) - 5.0 * cos(2.0*t) - 2.0 * cos(3.0*t) - cos(4.0*t);
+                posHeart.z = sin(id) * 2.0;
+                posHeart *= 0.4;
+
+                // SHAPE 2: SATURN / GALAXY
+                vec3 posSaturn;
+                float angle = id * 0.02;
+                float dist = 5.0 + hash(id) * 10.0;
+                if(mod(id, 2.0) == 0.0) {
+                    posSaturn = vec3(cos(angle), sin(angle) * 0.2, sin(angle)) * dist;
+                } else {
+                    posSaturn = vec3(cos(id), sin(id), cos(id*0.5)) * 3.0;
+                }
+
+                // MORPH & INTERACTION
+                vec3 finalPos = mix(posHeart, posSaturn, uMorph);
+                
+                // Apply Size/Expansion from hand span
+                finalPos *= uSize;
+
+                // Firework Burst Logic
+                float burst = uExplosion * (1.0 + hash(id) * 15.0);
+                finalPos += normalize(finalPos + 0.1) * burst;
+
+                // Follow Hand
+                finalPos += uHandPos;
+
+                vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+                gl_PointSize = (25.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+                
+                vColor = mix(vec3(1.0, 0.2, 0.5), vec3(0.2, 0.8, 1.0), uMorph);
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vColor;
+            void main() {
+                float d = distance(gl_PointCoord, vec2(0.5));
+                if(d > 0.5) discard;
+                gl_FragColor = vec4(vColor, 1.0 - (d * 2.0));
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            vertexShader, fragmentShader, transparent: true, blending: THREE.AdditiveBlending,
+            uniforms: {
+                uTime: { value: 0 },
+                uSize: { value: 1.0 },
+                uHandPos: { value: new THREE.Vector3(0,0,0) },
+                uMorph: { value: 0 },
+                uExplosion: { value: 0 }
+            }
+        });
+
+        const geo = new THREE.BufferGeometry();
+        const count = 8000;
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+        const particles = new THREE.Points(geo, material);
+        scene.add(particles);
+
+        // --- TRACKING LOGIC ---
+        let lastSpan = 0;
+        let explosionVal = 0;
+
+        const videoElement = document.getElementById('input-video');
+        const canvasElement = document.getElementById('video-container');
+        const canvasCtx = canvasElement.getContext('2d');
+
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
+
+        hands.onResults((results) => {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const hand = results.multiHandLandmarks[0];
+
+                // 1. POSITION (Center of palm)
+                const x = (hand[9].x - 0.5) * -25; 
+                const y = (hand[9].y - 0.5) * -15;
+                material.uniforms.uHandPos.value.lerp(new THREE.Vector3(x, y, 0), 0.2);
+
+                // 2. EXPANSION (Distance from Wrist[0] to Middle Finger Tip[12])
+                const dx = hand[0].x - hand[12].x;
+                const dy = hand[0].y - hand[12].y;
+                const currentSpan = Math.sqrt(dx*dx + dy*dy);
+                
+                // Map span to size (0.2 to 2.5 range)
+                const targetSize = THREE.MathUtils.mapLinear(currentSpan, 0.1, 0.5, 0.2, 2.5);
+                material.uniforms.uSize.value = THREE.MathUtils.lerp(material.uniforms.uSize.value, targetSize, 0.1);
+
+                // 3. MORPH (If hand is open, morph to Saturn; if closed, morph to Heart)
+                const isHandOpen = currentSpan > 0.3;
+                const targetMorph = isHandOpen ? 1.0 : 0.0;
+                material.uniforms.uMorph.value = THREE.MathUtils.lerp(material.uniforms.uMorph.value, targetMorph, 0.05);
+
+                // 4. FIREWORKS (Detect rapid opening velocity)
+                const velocity = currentSpan - lastSpan;
+                if (velocity > 0.08) explosionVal = 2.0;
+                lastSpan = currentSpan;
+            }
+        });
+
+        const cameraFeed = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({ image: videoElement }); },
+            width: 640, height: 480
+        });
+        cameraFeed.start();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            explosionVal *= 0.9; // Decay firework
+            material.uniforms.uExplosion.value = explosionVal;
+            material.uniforms.uTime.value += 0.01;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
