@@ -4,21 +4,117 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gesture Magic Particles</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
     <style>
-        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; }
-        #info { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
-        #video-container { position: absolute; bottom: 20px; right: 20px; width: 200px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.3); transform: scaleX(-1); }
-        .hint { font-size: 0.9rem; opacity: 0.8; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #121212 0%, #000000 100%); 
+            color: #ffffff; 
+            font-family: 'Inter', sans-serif; 
+        }
+
+        /* --- Glassmorphism Info Panel --- */
+        #info { 
+            position: absolute; 
+            top: 40px; 
+            left: 40px; 
+            width: 320px;
+            padding: 30px;
+            
+            /* Glass Effect */
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            
+            pointer-events: none; 
+            z-index: 10; 
+            transition: opacity 0.5s;
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* --- Instruction Styling --- */
+        .hint { 
+            font-size: 0.95rem; 
+            color: #b0b0b0; 
+            margin: 12px 0;
+            display: flex;
+            align-items: center;
+            line-height: 1.4;
+        }
+
+        /* Bullet points */
+        .hint::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+
+        /* Highlight keywords with Neon colors */
+        .hint b {
+            font-weight: 600;
+            margin-left: 4px;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .hint:nth-child(2) b { color: #4db8ff; } /* Blue for Expand */
+        .hint:nth-child(3) b { color: #ff4d6d; } /* Pink for Heart */
+        .hint:nth-child(4) b { color: #ffd166; } /* Gold for Fireworks */
+
+        /* Decorative footer line */
+        #info::after {
+            content: 'INTERACTIVE WEBGL';
+            display: block;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.2);
+            font-weight: 600;
+        }
+
+        /* --- Webcam Preview Frame --- */
+        #video-container { 
+            position: absolute; 
+            bottom: 40px; 
+            right: 40px; 
+            width: 220px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255,255,255,0.15); 
+            transform: scaleX(-1); /* Mirror view */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
     </style>
 </head>
 <body>
 
     <div id="info">
-        <h1>Hand Morph Particles</h1>
+        <h1>Gesture Magic</h1>
         <p class="hint">Open hand wide to <b>Expand</b></p>
-        <p class="hint">Close fist to <b>Shrink & Heart Morph</b></p>
-        <p class="hint">Flick hand open fast for <b>Fireworks</b></p>
+        <p class="hint">Close fist to <b>Shrink & Heart</b></p>
+        <p class="hint">Flick hand open for <b>Fireworks</b></p>
     </div>
+    
     <video id="input-video" style="display:none"></video>
     <canvas id="video-container"></canvas>
 
