@@ -4,9 +4,6 @@ Construction and Deconstruction of 3D heart using Three.js and HTML,CSS and JS
 
 An interactive generative art experiment that turns your webcam into a motion controller for a 3D particle system. Built with **Three.js** for WebGL rendering and **MediaPipe** for real-time hand tracking.
 
-![Project Banner](https://via.placeholder.com/1200x600/000000/ffffff?text=Gesture+Magic+Particles+Preview)
-*(Note: Replace this link with a screenshot of your actual project once running)*
-
 ## 🌟 Features
 
 * **Real-time Hand Tracking:** Uses MediaPipe Hands to detect palm position and finger distance with low latency.
