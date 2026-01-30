@@ -1,4 +1,4 @@
-# 3D-Heart-Tracker
+# Gesture-magic-particles
 Construction and Deconstruction of 3D heart using Three.js and HTML,CSS and JS
 # 🪄 Gesture Magic Particles
 
